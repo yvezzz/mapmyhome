@@ -335,6 +335,7 @@ class _ProprietaireState extends State<Proprietaire> {
       Navigator.pop(context);
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
@@ -377,11 +378,13 @@ class _ProprietaireState extends State<Proprietaire> {
         Navigator.pop(context);
         Navigator.pushReplacementNamed(context, '/home');
       } else {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Connexion Facebook annulée.")),
         );
       }
     } catch (e) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));

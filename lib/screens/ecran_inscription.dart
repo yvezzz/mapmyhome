@@ -150,6 +150,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
       Navigator.pop(context);
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
@@ -197,6 +198,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
         );
       }
     } catch (e) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));
