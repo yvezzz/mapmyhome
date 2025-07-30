@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mapmyhome/themes/theme.dart';
 import 'package:mapmyhome/screens/ecran_inscription.dart';
 import 'package:mapmyhome/screens/map_page.dart';
@@ -197,12 +200,29 @@ class _ProprietaireState extends State<Proprietaire> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          Logo(Logos.google),
-                          Logo(Logos.apple),
-                          Logo(Logos.facebook_f),
-                          Logo(Logos.twitter),
+                          IconButton(
+                            icon: Logo(Logos.google, size: 35),
+                            onPressed: () => signInWithGoogle(context),
+                          ),
+                          IconButton(
+                            icon: Logo(Logos.facebook_f, size: 35),
+                            onPressed: () => signInWithFacebook(context),
+                          ),
+                          IconButton(
+                            icon: Logo(Logos.github, size: 35),
+                            onPressed: () {
+                              // À implémenter
+                            },
+                          ),
+                          IconButton(
+                            icon: Logo(Logos.microsoft, size: 35),
+                            onPressed: () {
+                              // À implémenter
+                            },
+                          ),
                         ],
                       ),
+
                       const SizedBox(height: 25.0),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -260,8 +280,9 @@ class _ProprietaireState extends State<Proprietaire> {
       String message;
       if (e.code == 'user-not-found') {
         Navigator.pop(context);
+
         // Affiche un message : Utilisateur introuvable
-        message = 'Utilisateur introuvale ❌';
+        message = 'Utilisateur introuvable ❌';
       } else if (e.code == 'wrong-password') {
         Navigator.pop(context);
         message = 'Mot de passe incorrect 🔐';
@@ -272,6 +293,98 @@ class _ProprietaireState extends State<Proprietaire> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> signInWithGoogle(BuildContext context) async {
+    try {
+      _showLoadingDialog();
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return;
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithCredential(credential);
+
+      final uid = userCredential.user!.uid;
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(uid)
+              .get();
+
+      if (!userDoc.exists) {
+        await FirebaseFirestore.instance
+            .collection('utilisateurs')
+            .doc(uid)
+            .set({
+              'nom_complet': userCredential.user?.displayName ?? '',
+              'email': userCredential.user?.email ?? '',
+              'role': 'Client',
+              'pays': '',
+              'telephone': userCredential.user?.phoneNumber ?? '',
+              'uid': uid,
+              'auth_provider': 'google',
+            });
+      }
+      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
+    }
+  }
+
+  Future<void> signInWithFacebook(BuildContext context) async {
+    try {
+      _showLoadingDialog();
+      final LoginResult result = await FacebookAuth.instance.login();
+
+      if (result.status == LoginStatus.success) {
+        final OAuthCredential facebookCredential =
+            FacebookAuthProvider.credential(result.accessToken!.token);
+
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithCredential(facebookCredential);
+
+        final uid = userCredential.user!.uid;
+        final userDoc =
+            await FirebaseFirestore.instance
+                .collection('utilisateurs')
+                .doc(uid)
+                .get();
+
+        if (!userDoc.exists) {
+          await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(uid)
+              .set({
+                'nom_complet': userCredential.user?.displayName ?? '',
+                'email': userCredential.user?.email ?? '',
+                'role': 'Client',
+                'pays': '',
+                'telephone': userCredential.user?.phoneNumber ?? '',
+                'uid': uid,
+                'auth_provider': 'facebook',
+              });
+        }
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connexion Facebook annulée.")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));
     }
   }
 

@@ -1,10 +1,13 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:mapmyhome/screens/ecran_connexion.dart';
 import 'package:mapmyhome/themes/theme.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class EcranInscription extends StatefulWidget {
   const EcranInscription({super.key});
@@ -14,7 +17,7 @@ class EcranInscription extends StatefulWidget {
 }
 
 class _EcranInscriptionState extends State<EcranInscription> {
-  final _formEcranInscriptionKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   final mailController = TextEditingController();
   final mdpController = TextEditingController();
   final phoneController = TextEditingController();
@@ -29,13 +32,27 @@ class _EcranInscriptionState extends State<EcranInscription> {
   void dispose() {
     mailController.dispose();
     mdpController.dispose();
+    phoneController.dispose();
+    fullNameController.dispose();
     super.dispose();
   }
 
+  Future<void> _showLoadingDialog() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+    );
+  }
+
   Future<void> _handleInscription() async {
-    if (_formEcranInscriptionKey.currentState!.validate() &&
-        agreePersonalData) {
-      _showLoadingDialog(); // Affiche le loader
+    if (_formKey.currentState!.validate() && agreePersonalData) {
+      await _showLoadingDialog();
 
       try {
         final auth = FirebaseAuth.instance;
@@ -46,7 +63,6 @@ class _EcranInscriptionState extends State<EcranInscription> {
               password: mdpController.text.trim(),
             );
 
-        // Enregistrement des infos supplémentaires dans Firestore
         await FirebaseFirestore.instance
             .collection('utilisateurs')
             .doc(userCredential.user!.uid)
@@ -55,13 +71,12 @@ class _EcranInscriptionState extends State<EcranInscription> {
               'email': mailController.text.trim(),
               'role': selectedRole,
               'pays': selectedCountry,
-              'telephone':
-                  phoneController.text
-                      .trim(), // Récupère si tu as un controller
+              'telephone': phoneController.text.trim(),
               'uid': userCredential.user!.uid,
+              'auth_provider': 'email',
             });
-        Navigator.pop(context); // Ferme le loader
 
+        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Inscription réussie ✅")));
@@ -71,8 +86,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
           MaterialPageRoute(builder: (e) => const EcranConnexion()),
         );
       } on FirebaseAuthException catch (e) {
-        Navigator.pop(context); // Ferme le loader
-
+        Navigator.pop(context);
         String message = "Une erreur est survenue.";
         if (e.code == 'email-already-in-use') {
           message = "Cet e-mail est déjà utilisé.";
@@ -97,6 +111,98 @@ class _EcranInscriptionState extends State<EcranInscription> {
     }
   }
 
+  Future<void> signInWithGoogle(BuildContext context) async {
+    try {
+      await _showLoadingDialog();
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return;
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithCredential(credential);
+
+      final uid = userCredential.user!.uid;
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(uid)
+              .get();
+
+      if (!userDoc.exists) {
+        await FirebaseFirestore.instance
+            .collection('utilisateurs')
+            .doc(uid)
+            .set({
+              'nom_complet': userCredential.user?.displayName ?? '',
+              'email': userCredential.user?.email ?? '',
+              'role': 'Client',
+              'pays': '',
+              'telephone': userCredential.user?.phoneNumber ?? '',
+              'uid': uid,
+              'auth_provider': 'google',
+            });
+      }
+      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
+    }
+  }
+
+  Future<void> signInWithFacebook(BuildContext context) async {
+    try {
+      await _showLoadingDialog();
+      final LoginResult result = await FacebookAuth.instance.login();
+
+      if (result.status == LoginStatus.success) {
+        final OAuthCredential facebookCredential =
+            FacebookAuthProvider.credential(result.accessToken!.token);
+
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithCredential(facebookCredential);
+
+        final uid = userCredential.user!.uid;
+        final userDoc =
+            await FirebaseFirestore.instance
+                .collection('utilisateurs')
+                .doc(uid)
+                .get();
+
+        if (!userDoc.exists) {
+          await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(uid)
+              .set({
+                'nom_complet': userCredential.user?.displayName ?? '',
+                'email': userCredential.user?.email ?? '',
+                'role': 'Client',
+                'pays': '',
+                'telephone': userCredential.user?.phoneNumber ?? '',
+                'uid': uid,
+                'auth_provider': 'facebook',
+              });
+        }
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connexion Facebook annulée.")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -104,15 +210,12 @@ class _EcranInscriptionState extends State<EcranInscription> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
-
-          double formWidth;
-          if (screenWidth < 600) {
-            formWidth = screenWidth;
-          } else if (screenWidth < 1000) {
-            formWidth = 650;
-          } else {
-            formWidth = 500;
-          }
+          double formWidth =
+              screenWidth < 600
+                  ? screenWidth
+                  : screenWidth < 1000
+                  ? 650
+                  : 500;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -133,32 +236,24 @@ class _EcranInscriptionState extends State<EcranInscription> {
                   borderRadius: BorderRadius.circular(40),
                 ),
                 child: Form(
-                  key: _formEcranInscriptionKey,
+                  key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Center(
-                        child: Text(
-                          'Créez un compte',
-                          style: TextStyle(
-                            fontSize: 30.0,
-                            fontWeight: FontWeight.w900,
-                            color: lightColorScheme.primary,
-                          ),
-                          textAlign: TextAlign.center,
-
+                      Text(
+                        'Créez un compte',
+                        style: TextStyle(
+                          fontSize: 30.0,
+                          fontWeight: FontWeight.w900,
+                          color: lightColorScheme.primary,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-
                       const SizedBox(height: 25),
-
-                      // Nom complet
                       TextFormField(
                         controller: fullNameController,
                         decoration: InputDecoration(
                           label: const Text('Nom et prénom'),
                           hintText: 'Entrez le nom complet',
-                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -170,39 +265,31 @@ class _EcranInscriptionState extends State<EcranInscription> {
                                     : null,
                       ),
                       const SizedBox(height: 25),
-
-                      // Email
                       TextFormField(
                         controller: mailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           label: const Text('E-mail'),
                           hintText: "exemple@gmail.com",
-                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.isEmpty)
                             return "Veuillez saisir un e-mail";
-                          }
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                            return 'E-mail invalide (exemple@gmail.com)';
-                          }
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value))
+                            return 'E-mail invalide';
                           return null;
                         },
                       ),
                       const SizedBox(height: 25),
-
-                      // Mot de passe
                       TextFormField(
                         controller: mdpController,
                         obscureText: _obscureText,
                         decoration: InputDecoration(
                           label: const Text('Mot de passe'),
                           hintText: 'Entrez le mot de passe',
-                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -213,48 +300,39 @@ class _EcranInscriptionState extends State<EcranInscription> {
                                   : Icons.visibility_off,
                             ),
                             onPressed:
-                                () => setState(() {
-                                  _obscureText = !_obscureText;
-                                }),
+                                () => setState(
+                                  () => _obscureText = !_obscureText,
+                                ),
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.isEmpty)
                             return "Veuillez saisir le mot de passe";
-                          }
-                          if (value.length < 8 || value.length > 20) {
-                            return '8-20 caractères minimum';
-                          }
+                          if (value.length < 8 || value.length > 20)
+                            return '8-20 caractères requis';
                           return null;
                         },
                       ),
                       const SizedBox(height: 25),
-
-                      // Téléphone
                       TextFormField(
                         controller: phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           label: const Text('Téléphone'),
                           hintText: 'Entrez votre numéro',
-                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.isEmpty)
                             return 'Numéro requis';
-                          }
-                          if (!RegExp(r'^\d{9,}$').hasMatch(value)) {
+                          if (!RegExp(r'^\d{9,}$').hasMatch(value))
                             return 'Numéro invalide';
-                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 25),
-
-                      // Sélecteur de pays
                       GestureDetector(
                         onTap: () {
                           showCountryPicker(
@@ -286,8 +364,6 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         ),
                       ),
                       const SizedBox(height: 25),
-
-                      // Rôle
                       DropdownButtonFormField<String>(
                         value: selectedRole,
                         hint: const Text('Choisir un rôle'),
@@ -315,39 +391,44 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         ),
                       ),
                       const SizedBox(height: 25),
-
-                      // Consentement
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Checkbox(
                             value: agreePersonalData,
                             onChanged:
-                                (val) => setState(() {
-                                  agreePersonalData = val!;
-                                }),
+                                (val) =>
+                                    setState(() => agreePersonalData = val!),
                           ),
-                          Flexible(
-                            child: Wrap(
-                              children: [
-                                const Text("J'accepte le traitement des "),
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: Text(
-                                    "données personnelles",
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: Theme.of(context).textTheme.bodyMedium!
+                                    .copyWith(color: Colors.black),
+                                children: [
+                                  const TextSpan(
+                                    text: "J'accepte le traitement des ",
+                                  ),
+                                  TextSpan(
+                                    text: "données personnelles",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: lightColorScheme.primary,
                                     ),
+                                    recognizer:
+                                        TapGestureRecognizer()
+                                          ..onTap = () {
+                                            // Action lors du clic
+                                          },
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 25),
 
-                      // Bouton Inscription
+                      const SizedBox(height: 25),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -356,8 +437,6 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         ),
                       ),
                       const SizedBox(height: 30),
-
-                      // Ligne
                       const Row(
                         children: [
                           Expanded(child: Divider(color: Colors.grey)),
@@ -369,20 +448,32 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         ],
                       ),
                       const SizedBox(height: 30),
-
-                      // Réseaux sociaux
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          Logo(Logos.google),
-                          Logo(Logos.apple),
-                          Logo(Logos.facebook_f),
-                          Logo(Logos.twitter),
+                          IconButton(
+                            icon: Logo(Logos.google, size: 35),
+                            onPressed: () => signInWithGoogle(context),
+                          ),
+                          IconButton(
+                            icon: Logo(Logos.facebook_f, size: 35),
+                            onPressed: () => signInWithFacebook(context),
+                          ),
+                          IconButton(
+                            icon: Logo(Logos.github, size: 35),
+                            onPressed: () {
+                              // À implémenter
+                            },
+                          ),
+                          IconButton(
+                            icon: Logo(Logos.microsoft, size: 35),
+                            onPressed: () {
+                              // À implémenter
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 25),
-
-                      // Connexion
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -415,19 +506,6 @@ class _EcranInscriptionState extends State<EcranInscription> {
           );
         },
       ),
-    );
-  }
-
-  void _showLoadingDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => const Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Center(child: CircularProgressIndicator()),
-          ),
     );
   }
 }
