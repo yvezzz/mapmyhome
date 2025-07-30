@@ -43,7 +43,7 @@ class _MapPageState extends State<MapPage> {
                           if (context.mounted) {
                             Navigator.pushReplacementNamed(
                               context,
-                              '/login',
+                              '/',
                             );
                           }
                         },

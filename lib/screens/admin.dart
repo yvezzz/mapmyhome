@@ -200,6 +200,7 @@ class _AdminState extends State<Admin> {
                           Logo(Logos.google),
                           Logo(Logos.apple),
                           Logo(Logos.facebook_f),
+                          Logo(Logos.twitter),
                         ],
                       ),
                       const SizedBox(height: 25.0),
@@ -241,14 +242,15 @@ class _AdminState extends State<Admin> {
     );
   }
 
-
   Future<void> login(BuildContext context) async {
     final auth = FirebaseAuth.instance;
     try {
+      _showLoadingDialog();
       await auth.signInWithEmailAndPassword(
-        email: mailController.text,
-        password: mdpController.text,
+        email: mailController.text.trim(),
+        password: mdpController.text.trim(),
       );
+      Navigator.pop(context);
       // Connexion réussie ✅
       Navigator.push(
         context,
@@ -257,16 +259,33 @@ class _AdminState extends State<Admin> {
     } on FirebaseAuthException catch (e) {
       String message;
       if (e.code == 'user-not-found') {
+        Navigator.pop(context);
+
         // Affiche un message : Utilisateur introuvable
-        message = 'Utilisateur introuvale ❌';
+        message = 'Utilisateur introuvable ❌';
       } else if (e.code == 'wrong-password') {
+        Navigator.pop(context);
         message = 'Mot de passe incorrect 🔐';
       } else {
+        Navigator.pop(context);
         message = 'Erreur : Utilisateur ou Mot de passe incorrect 🔐❌';
       }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+    );
   }
 }

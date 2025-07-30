@@ -17,6 +17,8 @@ class _EcranInscriptionState extends State<EcranInscription> {
   final _formEcranInscriptionKey = GlobalKey<FormState>();
   final mailController = TextEditingController();
   final mdpController = TextEditingController();
+  final phoneController = TextEditingController();
+  final fullNameController = TextEditingController();
 
   bool agreePersonalData = false;
   bool _obscureText = true;
@@ -33,13 +35,32 @@ class _EcranInscriptionState extends State<EcranInscription> {
   Future<void> _handleInscription() async {
     if (_formEcranInscriptionKey.currentState!.validate() &&
         agreePersonalData) {
+      _showLoadingDialog(); // Affiche le loader
+
       try {
         final auth = FirebaseAuth.instance;
 
-        await auth.createUserWithEmailAndPassword(
-          email: mailController.text.trim(),
-          password: mdpController.text.trim(),
-        );
+        UserCredential userCredential = await auth
+            .createUserWithEmailAndPassword(
+              email: mailController.text.trim(),
+              password: mdpController.text.trim(),
+            );
+
+        // Enregistrement des infos supplémentaires dans Firestore
+        await FirebaseFirestore.instance
+            .collection('utilisateurs')
+            .doc(userCredential.user!.uid)
+            .set({
+              'nom_complet': fullNameController.text.trim(),
+              'email': mailController.text.trim(),
+              'role': selectedRole,
+              'pays': selectedCountry,
+              'telephone':
+                  phoneController.text
+                      .trim(), // Récupère si tu as un controller
+              'uid': userCredential.user!.uid,
+            });
+        Navigator.pop(context); // Ferme le loader
 
         ScaffoldMessenger.of(
           context,
@@ -50,6 +71,8 @@ class _EcranInscriptionState extends State<EcranInscription> {
           MaterialPageRoute(builder: (e) => const EcranConnexion()),
         );
       } on FirebaseAuthException catch (e) {
+        Navigator.pop(context); // Ferme le loader
+
         String message = "Une erreur est survenue.";
         if (e.code == 'email-already-in-use') {
           message = "Cet e-mail est déjà utilisé.";
@@ -117,14 +140,13 @@ class _EcranInscriptionState extends State<EcranInscription> {
                       Center(
                         child: Text(
                           'Créez un compte',
-                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 25.0,
-                            fontWeight: FontWeight.w800,
-                            color:
-                                lightColorScheme
-                                    .primary,
+                            fontSize: 30.0,
+                            fontWeight: FontWeight.w900,
+                            color: lightColorScheme.primary,
                           ),
+                          textAlign: TextAlign.center,
+
                         ),
                       ),
 
@@ -132,6 +154,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
 
                       // Nom complet
                       TextFormField(
+                        controller: fullNameController,
                         decoration: InputDecoration(
                           label: const Text('Nom et prénom'),
                           hintText: 'Entrez le nom complet',
@@ -209,6 +232,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
 
                       // Téléphone
                       TextFormField(
+                        controller: phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           label: const Text('Téléphone'),
@@ -302,7 +326,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                                   agreePersonalData = val!;
                                 }),
                           ),
-                          Expanded(
+                          Flexible(
                             child: Wrap(
                               children: [
                                 const Text("J'accepte le traitement des "),
@@ -353,6 +377,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           Logo(Logos.google),
                           Logo(Logos.apple),
                           Logo(Logos.facebook_f),
+                          Logo(Logos.twitter),
                         ],
                       ),
                       const SizedBox(height: 25),
@@ -390,6 +415,19 @@ class _EcranInscriptionState extends State<EcranInscription> {
           );
         },
       ),
+    );
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(child: CircularProgressIndicator()),
+          ),
     );
   }
 }

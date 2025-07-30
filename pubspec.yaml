@@ -60,6 +60,8 @@ dependencies:
   # État (choisir un)
   provider: ^6.1.2
   firebase_analytics: ^11.5.2
+  bloc: ^9.0.0
+  flutter_bloc: ^9.1.1
   # flutter_riverpod: ^3.0.0
 
 dev_dependencies:

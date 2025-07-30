@@ -10,12 +10,12 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🔐 Initialisation de Firebase avec options générées par flutterfire configure
+  //  Initialisation de Firebase avec options générées par flutterfire configure
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ✅ Activation de App Check (debug ici, mais à remplacer en prod)
+  //  Activation de App Check (debug ici, mais à remplacer en prod)
   await FirebaseAppCheck.instance.activate(
     androidProvider: AndroidProvider.debug,
     // webRecaptchaSiteKey: '...' // optionnel pour web
@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => SplashScreen(),
-        '/home': (context) => MapPage(),
+        '/home': (context) => const MapPage(),
         '/login': (context) => const EcranConnexion(),
       },
     );
