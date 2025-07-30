@@ -297,50 +297,55 @@ class _ProprietaireState extends State<Proprietaire> {
   }
 
   Future<void> signInWithGoogle(BuildContext context) async {
-    try {
-      _showLoadingDialog();
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
+  try {
+     _showLoadingDialog();
 
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithCredential(credential);
-
-      final uid = userCredential.user!.uid;
-      final userDoc =
-          await FirebaseFirestore.instance
-              .collection('utilisateurs')
-              .doc(uid)
-              .get();
-
-      if (!userDoc.exists) {
-        await FirebaseFirestore.instance
-            .collection('utilisateurs')
-            .doc(uid)
-            .set({
-              'nom_complet': userCredential.user?.displayName ?? '',
-              'email': userCredential.user?.email ?? '',
-              'role': 'Client',
-              'pays': '',
-              'telephone': userCredential.user?.phoneNumber ?? '',
-              'uid': uid,
-              'auth_provider': 'google',
-            });
-      }
-      Navigator.pop(context);
-      Navigator.pushReplacementNamed(context, '/home');
-    } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      Navigator.pop(context); // ✅ fermer le dialog si annulé
+      return;
     }
+
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithCredential(credential);
+
+    final uid = userCredential.user!.uid;
+    final userDoc = await FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists) {
+      await FirebaseFirestore.instance
+          .collection('utilisateurs')
+          .doc(uid)
+          .set({
+        'nom_complet': userCredential.user?.displayName ?? '',
+        'email': userCredential.user?.email ?? '',
+        'role': 'Client',
+        'pays': '',
+        'telephone': userCredential.user?.phoneNumber ?? '',
+        'uid': uid,
+        'auth_provider': 'google',
+      });
+    }
+
+    Navigator.pop(context); // ✅ fermeture normale
+    Navigator.pushReplacementNamed(context, '/home');
+  } catch (e) {
+    Navigator.pop(context); // ✅ fermeture en cas d'erreur
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur Google : $e')),
+    );
   }
+}
+
 
   Future<void> signInWithFacebook(BuildContext context) async {
     try {
