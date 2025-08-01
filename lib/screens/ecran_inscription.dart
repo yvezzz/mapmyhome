@@ -1,13 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:mapmyhome/screens/ecran_connexion.dart';
 import 'package:mapmyhome/themes/theme.dart';
 import 'package:country_picker/country_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:mapmyhome/widgets/methode.dart';
 
 class EcranInscription extends StatefulWidget {
   const EcranInscription({super.key});
@@ -17,16 +14,6 @@ class EcranInscription extends StatefulWidget {
 }
 
 class _EcranInscriptionState extends State<EcranInscription> {
-  final _formKey = GlobalKey<FormState>();
-  final mailController = TextEditingController();
-  final mdpController = TextEditingController();
-  final phoneController = TextEditingController();
-  final fullNameController = TextEditingController();
-
-  bool agreePersonalData = false;
-  bool _obscureText = true;
-  String? selectedRole;
-  String? selectedCountry;
 
   @override
   void dispose() {
@@ -37,179 +24,6 @@ class _EcranInscriptionState extends State<EcranInscription> {
     super.dispose();
   }
 
-  Future<void> _showLoadingDialog() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => const Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-    );
-  }
-
-  Future<void> _handleInscription() async {
-    if (_formKey.currentState!.validate() && agreePersonalData) {
-      await _showLoadingDialog();
-
-      try {
-        final auth = FirebaseAuth.instance;
-
-        UserCredential userCredential = await auth
-            .createUserWithEmailAndPassword(
-              email: mailController.text.trim(),
-              password: mdpController.text.trim(),
-            );
-
-        await FirebaseFirestore.instance
-            .collection('utilisateurs')
-            .doc(userCredential.user!.uid)
-            .set({
-              'nom_complet': fullNameController.text.trim(),
-              'email': mailController.text.trim(),
-              'role': selectedRole,
-              'pays': selectedCountry,
-              'telephone': phoneController.text.trim(),
-              'uid': userCredential.user!.uid,
-              'auth_provider': 'email',
-            });
-
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Inscription réussie ✅")));
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (e) => const EcranConnexion()),
-        );
-      } on FirebaseAuthException catch (e) {
-        Navigator.pop(context);
-        String message = "Une erreur est survenue.";
-        if (e.code == 'email-already-in-use') {
-          message = "Cet e-mail est déjà utilisé.";
-        } else if (e.code == 'invalid-email') {
-          message = "E-mail invalide.";
-        } else if (e.code == 'weak-password') {
-          message = "Mot de passe trop faible.";
-        }
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } else if (!agreePersonalData) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Veuillez accepter le traitement des données personnelles",
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> signInWithGoogle(BuildContext context) async {
-  try {
-    await _showLoadingDialog();
-
-    final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      Navigator.pop(context); // ✅ fermer le dialog si annulé
-      return;
-    }
-
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-    final uid = userCredential.user!.uid;
-    final userDoc = await FirebaseFirestore.instance
-        .collection('utilisateurs')
-        .doc(uid)
-        .get();
-
-    if (!userDoc.exists) {
-      await FirebaseFirestore.instance
-          .collection('utilisateurs')
-          .doc(uid)
-          .set({
-        'nom_complet': userCredential.user?.displayName ?? '',
-        'email': userCredential.user?.email ?? '',
-        'role': 'Client',
-        'pays': '',
-        'telephone': userCredential.user?.phoneNumber ?? '',
-        'uid': uid,
-        'auth_provider': 'google',
-      });
-    }
-
-    Navigator.pop(context); // ✅ fermeture normale
-    Navigator.pushReplacementNamed(context, '/home');
-  } catch (e) {
-    Navigator.pop(context); // ✅ fermeture en cas d'erreur
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erreur Google : $e')),
-    );
-  }
-}
-
-
-  Future<void> signInWithFacebook(BuildContext context) async {
-    try {
-      await _showLoadingDialog();
-      final LoginResult result = await FacebookAuth.instance.login();
-
-      if (result.status == LoginStatus.success) {
-        final OAuthCredential facebookCredential =
-            FacebookAuthProvider.credential(result.accessToken!.token);
-
-        UserCredential userCredential = await FirebaseAuth.instance
-            .signInWithCredential(facebookCredential);
-
-        final uid = userCredential.user!.uid;
-        final userDoc =
-            await FirebaseFirestore.instance
-                .collection('utilisateurs')
-                .doc(uid)
-                .get();
-
-        if (!userDoc.exists) {
-          await FirebaseFirestore.instance
-              .collection('utilisateurs')
-              .doc(uid)
-              .set({
-                'nom_complet': userCredential.user?.displayName ?? '',
-                'email': userCredential.user?.email ?? '',
-                'role': 'Client',
-                'pays': '',
-                'telephone': userCredential.user?.phoneNumber ?? '',
-                'uid': uid,
-                'auth_provider': 'facebook',
-              });
-        }
-        Navigator.pop(context);
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Connexion Facebook annulée.")),
-        );
-      }
-    } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,12 +31,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
-          double formWidth =
-              screenWidth < 600
-                  ? screenWidth
-                  : screenWidth < 1000
-                  ? 650
-                  : 500;
+          final formWidth = getFormWidth(screenWidth);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -243,7 +52,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                   borderRadius: BorderRadius.circular(40),
                 ),
                 child: Form(
-                  key: _formKey,
+                  key: formKey,
                   child: Column(
                     children: [
                       Text(
@@ -283,17 +92,19 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty)
+                          if (value == null || value.isEmpty) {
                             return "Veuillez saisir un e-mail";
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value))
+                          }
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                             return 'E-mail invalide';
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 25),
                       TextFormField(
                         controller: mdpController,
-                        obscureText: _obscureText,
+                        obscureText: obscureText,
                         decoration: InputDecoration(
                           label: const Text('Mot de passe'),
                           hintText: 'Entrez le mot de passe',
@@ -302,21 +113,23 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureText
+                              obscureText
                                   ? Icons.visibility
                                   : Icons.visibility_off,
                             ),
                             onPressed:
                                 () => setState(
-                                  () => _obscureText = !_obscureText,
+                                  () => obscureText = !obscureText,
                                 ),
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty)
+                          if (value == null || value.isEmpty) {
                             return "Veuillez saisir le mot de passe";
-                          if (value.length < 8 || value.length > 20)
+                          }
+                          if (value.length < 8 || value.length > 20) {
                             return '8-20 caractères requis';
+                          }
                           return null;
                         },
                       ),
@@ -332,10 +145,12 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty)
+                          if (value == null || value.isEmpty) {
                             return 'Numéro requis';
-                          if (!RegExp(r'^\d{9,}$').hasMatch(value))
+                          }
+                          if (!RegExp(r'^\d{9,}$').hasMatch(value)) {
                             return 'Numéro invalide';
+                          }
                           return null;
                         },
                       ),
@@ -399,7 +214,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                       ),
                       const SizedBox(height: 25),
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Checkbox(
                             value: agreePersonalData,
@@ -417,7 +232,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                                     text: "J'accepte le traitement des ",
                                   ),
                                   TextSpan(
-                                    text: "données personnelles",
+                                    text: " données personnelles",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: lightColorScheme.primary,
@@ -439,7 +254,10 @@ class _EcranInscriptionState extends State<EcranInscription> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _handleInscription,
+                          onPressed: () {
+                            handleInscription(context);
+                          },
+                          style: customButtonStyle(context),
                           child: const Text("S'inscrire"),
                         ),
                       ),
@@ -449,7 +267,10 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           Expanded(child: Divider(color: Colors.grey)),
                           Padding(
                             padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text("S'inscrire avec"),
+                            child: Text(
+                              "S'inscrire avec",
+                              style: TextStyle(color: Colors.black45),
+                            ),
                           ),
                           Expanded(child: Divider(color: Colors.grey)),
                         ],
@@ -484,7 +305,10 @@ class _EcranInscriptionState extends State<EcranInscription> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text("Vous avez déjà un compte ? "),
+                          const Text(
+                            "Vous avez déjà un compte ? ",
+                            style: TextStyle(color: Colors.black45),
+                          ),
                           GestureDetector(
                             onTap: () {
                               Navigator.pushReplacement(
@@ -495,7 +319,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                               );
                             },
                             child: Text(
-                              "Se connecter",
+                              " Se connecter",
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: lightColorScheme.primary,

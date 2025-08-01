@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mapmyhome/widgets/methode.dart';
+
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -14,17 +16,9 @@ class _MapPageState extends State<MapPage> {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final screenWidth = constraints.maxWidth;
-          //Largeur responsive
-          double formWidth;
-          if (screenWidth < 600) {
-            formWidth = screenWidth; //mobile
-          } else if (screenWidth < 1000) {
-            formWidth = 650; //tablette
-          } else {
-            formWidth = 500; //Ordinateur
-          }
-
+        final screenWidth = constraints.maxWidth;
+        final formWidth = getFormWidth(screenWidth);
+        
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
             child: SizedBox(
@@ -36,18 +30,15 @@ class _MapPageState extends State<MapPage> {
                     const Text("Page de la Carte"),
                     const SizedBox(height: 50.0),
                     SizedBox(
-                      width: double.infinity,
+                      width: screenWidth * 0.35,
                       child: ElevatedButton(
                         onPressed: () async {
                           await FirebaseAuth.instance.signOut();
                           if (context.mounted) {
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/',
-                            );
+                            Navigator.pushReplacementNamed(context, '/');
                           }
                         },
-
+                        style: customButtonStyle(context),
                         child: const Text(
                           "Déconnexion",
                           textAlign: TextAlign.center,

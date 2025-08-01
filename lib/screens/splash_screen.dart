@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mapmyhome/widgets/methode.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -33,15 +34,7 @@ class _SplashScreenState extends State<SplashScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
-
-          double formWidth;
-          if (screenWidth < 600) {
-            formWidth = screenWidth; // mobile
-          } else if (screenWidth < 1000) {
-            formWidth = 650; // tablette
-          } else {
-            formWidth = 500; // desktop
-          }
+          final formWidth = getFormWidth(screenWidth);
 
           return Center(
             child: SingleChildScrollView(
