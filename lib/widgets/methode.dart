@@ -19,6 +19,7 @@ bool agreePersonalData = false;
 String? selectedRole;
 String? selectedCountry;
 
+
 Future<void> handleInscription(BuildContext context) async {
   if (formKey.currentState!.validate() && agreePersonalData) {
     showLoadingDialog(context);
