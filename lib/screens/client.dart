@@ -1,8 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mapmyhome/themes/theme.dart';
 import 'package:mapmyhome/screens/ecran_inscription.dart';
+import 'package:mapmyhome/screens/map_page.dart';
 import 'package:icons_plus/icons_plus.dart';
-import 'package:mapmyhome/widgets/methode.dart';
 
 class Client extends StatefulWidget {
   const Client({super.key});
@@ -12,6 +16,13 @@ class Client extends StatefulWidget {
 }
 
 class _ClientState extends State<Client> {
+  final _formKey = GlobalKey<FormState>();
+  bool rememberPassword = false;
+  bool _obscureText = true;
+  String? errorMessage;
+  final mdpController = TextEditingController();
+  final mailController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -19,7 +30,16 @@ class _ClientState extends State<Client> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
-          final formWidth = getFormWidth(screenWidth);
+
+          //Largeur responsive
+          double formWidth;
+          if (screenWidth < 600) {
+            formWidth = screenWidth; //mobile
+          } else if (screenWidth < 1000) {
+            formWidth = 650; //tablette
+          } else {
+            formWidth = 500; //Ordinateur
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -45,7 +65,7 @@ class _ClientState extends State<Client> {
                   ),
                 ),
                 child: Form(
-                  key: formKey,
+                  key: _formKey,
                   child: Column(
                     children: [
                       Center(
@@ -83,7 +103,7 @@ class _ClientState extends State<Client> {
                       const SizedBox(height: 25.0),
                       TextFormField(
                         controller: mdpController,
-                        obscureText: obscureText,
+                        obscureText: _obscureText,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return "Veuillez saisir le mot de passe";
@@ -97,13 +117,13 @@ class _ClientState extends State<Client> {
                           labelText: 'Mot de passe',
                           suffixIcon: IconButton(
                             icon: Icon(
-                              obscureText
+                              _obscureText
                                   ? Icons.visibility
                                   : Icons.visibility_off,
                             ),
                             onPressed: () {
                               setState(() {
-                                obscureText = !obscureText;
+                                _obscureText = !_obscureText;
                               });
                             },
                           ),
@@ -152,22 +172,24 @@ class _ClientState extends State<Client> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
-                            if (formKey.currentState!.validate()) {
+                            if (_formKey.currentState!.validate()) {
                               login(context);
                             }
                           },
-                          style: customButtonStyle(context),
                           child: const Text("Connexion"),
                         ),
                       ),
                       const SizedBox(height: 25.0),
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Divider(thickness: 0.7, color: Colors.grey),
+                            child: Divider(
+                              thickness: 0.7,
+                              color: Colors.grey.withOpacity(0.5),
+                            ),
                           ),
-                          Padding(
+                          const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 10),
                             child: Text(
                               "Se connecter avec",
@@ -175,7 +197,10 @@ class _ClientState extends State<Client> {
                             ),
                           ),
                           Expanded(
-                            child: Divider(thickness: 0.7, color: Colors.grey),
+                            child: Divider(
+                              thickness: 0.7,
+                              color: Colors.grey.withOpacity(0.5),
+                            ),
                           ),
                         ],
                       ),
@@ -190,9 +215,9 @@ class _ClientState extends State<Client> {
                           IconButton(
                             icon: Logo(Logos.facebook_f, size: 35),
                             onPressed: () {
-                  // À implémenter
-                },
-              ),
+                              // À implémenter
+                            },
+                          ),
                           IconButton(
                             icon: Logo(Logos.github, size: 35),
                             onPressed: () {
@@ -243,6 +268,153 @@ class _ClientState extends State<Client> {
           );
         },
       ),
+    );
+  }
+
+  Future<void> login(BuildContext context) async {
+    final auth = FirebaseAuth.instance;
+    try {
+      _showLoadingDialog();
+      await auth.signInWithEmailAndPassword(
+        email: mailController.text.trim(),
+        password: mdpController.text.trim(),
+      );
+      Navigator.pop(context);
+      // Connexion réussie ✅
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MapPage()),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+      if (e.code == 'user-not-found') {
+        Navigator.pop(context);
+
+        // Affiche un message : Utilisateur introuvable
+        message = 'Utilisateur introuvable ❌';
+      } else if (e.code == 'wrong-password') {
+        Navigator.pop(context);
+        message = 'Mot de passe incorrect 🔐';
+      } else {
+        Navigator.pop(context);
+        message = 'Erreur : Utilisateur ou Mot de passe incorrect 🔐❌';
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> signInWithGoogle(BuildContext context) async {
+  try {
+     _showLoadingDialog();
+
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      Navigator.pop(context); // ✅ fermer le dialog si annulé
+      return;
+    }
+
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithCredential(credential);
+
+    final uid = userCredential.user!.uid;
+    final userDoc = await FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists) {
+      await FirebaseFirestore.instance
+          .collection('utilisateurs')
+          .doc(uid)
+          .set({
+        'nom_complet': userCredential.user?.displayName ?? '',
+        'email': userCredential.user?.email ?? '',
+        'role': 'Client',
+        'pays': '',
+        'telephone': userCredential.user?.phoneNumber ?? '',
+        'uid': uid,
+        'auth_provider': 'google',
+      });
+    }
+
+    Navigator.pop(context); // ✅ fermeture normale
+    Navigator.pushReplacementNamed(context, '/home');
+  } catch (e) {
+    Navigator.pop(context); // ✅ fermeture en cas d'erreur
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur Google : $e')),
+    );
+  }
+}
+
+
+  Future<void> signInWithFacebook(BuildContext context) async {
+    try {
+      _showLoadingDialog();
+      final LoginResult result = await FacebookAuth.instance.login();
+
+      if (result.status == LoginStatus.success) {
+        final OAuthCredential facebookCredential =
+            FacebookAuthProvider.credential(result.accessToken!.token);
+
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithCredential(facebookCredential);
+
+        final uid = userCredential.user!.uid;
+        final userDoc =
+            await FirebaseFirestore.instance
+                .collection('utilisateurs')
+                .doc(uid)
+                .get();
+
+        if (!userDoc.exists) {
+          await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(uid)
+              .set({
+                'nom_complet': userCredential.user?.displayName ?? '',
+                'email': userCredential.user?.email ?? '',
+                'role': 'Client',
+                'pays': '',
+                'telephone': userCredential.user?.phoneNumber ?? '',
+                'uid': uid,
+                'auth_provider': 'facebook',
+              });
+        }
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connexion Facebook annulée.")),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));
+    }
+  }
+
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(child: CircularProgressIndicator()),
+          ),
     );
   }
 }

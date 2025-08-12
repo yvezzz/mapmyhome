@@ -14,6 +14,12 @@ class EcranInscription extends StatefulWidget {
 }
 
 class _EcranInscriptionState extends State<EcranInscription> {
+
+  final mailController = TextEditingController();
+  final mdpController = TextEditingController();
+  final phoneController = TextEditingController();
+  final fullNameController = TextEditingController();
+
   @override
   void dispose() {
     mailController.dispose();
