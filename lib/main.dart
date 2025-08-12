@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mapmyhome/screens/map_page.dart';
+import 'package:mapmyhome/screens/map_page2.dart';
 import 'package:mapmyhome/screens/splash_screen.dart';
 import 'package:mapmyhome/themes/theme.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -34,11 +35,12 @@ class MyApp extends StatelessWidget {
       title: 'MapMyHome',
       theme: LightMode,
       initialRoute: '/',
-      routes: {
+      home: const MapPage2(),
+      /* routes: {
         '/': (context) => SplashScreen(),
         '/home': (context) => const MapPage(),
         '/login': (context) => const EcranConnexion(),
-      },
+      },*/
     );
   }
 }
