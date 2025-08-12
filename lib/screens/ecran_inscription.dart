@@ -14,7 +14,6 @@ class EcranInscription extends StatefulWidget {
 }
 
 class _EcranInscriptionState extends State<EcranInscription> {
-
   @override
   void dispose() {
     mailController.dispose();
@@ -118,9 +117,8 @@ class _EcranInscriptionState extends State<EcranInscription> {
                                   : Icons.visibility_off,
                             ),
                             onPressed:
-                                () => setState(
-                                  () => obscureText = !obscureText,
-                                ),
+                                () =>
+                                    setState(() => obscureText = !obscureText),
                           ),
                         ),
                         validator: (value) {
@@ -285,7 +283,9 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           ),
                           IconButton(
                             icon: Logo(Logos.facebook_f, size: 35),
-                            onPressed: () => signInWithFacebook(context),
+                            onPressed: () {
+                              // À implémenter
+                            },
                           ),
                           IconButton(
                             icon: Logo(Logos.github, size: 35),

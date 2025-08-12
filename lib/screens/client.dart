@@ -189,8 +189,10 @@ class _ClientState extends State<Client> {
                           ),
                           IconButton(
                             icon: Logo(Logos.facebook_f, size: 35),
-                            onPressed: () => signInWithFacebook(context),
-                          ),
+                            onPressed: () {
+                  // À implémenter
+                },
+              ),
                           IconButton(
                             icon: Logo(Logos.github, size: 35),
                             onPressed: () {

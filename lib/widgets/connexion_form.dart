@@ -151,7 +151,9 @@ class _ConnexionFormState extends State<ConnexionForm> {
               ),
               IconButton(
                 icon: Logo(Logos.facebook_f, size: 35),
-                onPressed: () => signInWithFacebook(context),
+                onPressed: () {
+                  // À implémenter
+                },
               ),
               IconButton(
                 icon: Logo(Logos.github, size: 35),

@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart'
-    show FacebookAuth, LoginResult, LoginStatus;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mapmyhome/screens/ecran_connexion.dart';
 import 'package:mapmyhome/screens/map_page.dart';
@@ -114,55 +112,6 @@ void showLoadingDialog(BuildContext context) {
           child: Center(child: CircularProgressIndicator()),
         ),
   );
-}
-
-Future<void> signInWithFacebook(BuildContext context) async {
-  try {
-    showLoadingDialog(context);
-    final LoginResult result = await FacebookAuth.instance.login();
-
-    if (result.status == LoginStatus.success) {
-      final OAuthCredential facebookCredential =
-          FacebookAuthProvider.credential(result.accessToken!.token);
-
-      UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithCredential(facebookCredential);
-
-      final uid = userCredential.user!.uid;
-      final userDoc =
-          await FirebaseFirestore.instance
-              .collection('utilisateurs')
-              .doc(uid)
-              .get();
-
-      if (!userDoc.exists) {
-        await FirebaseFirestore.instance
-            .collection('utilisateurs')
-            .doc(uid)
-            .set({
-              'nom_complet': userCredential.user?.displayName ?? '',
-              'email': userCredential.user?.email ?? '',
-              'role': 'Client',
-              'pays': '',
-              'telephone': userCredential.user?.phoneNumber ?? '',
-              'uid': uid,
-              'auth_provider': 'facebook',
-            });
-      }
-      Navigator.pop(context);
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Connexion Facebook annulée.")),
-      );
-    }
-  } catch (e) {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("Erreur Facebook : $e")));
-  }
 }
 
 Future<void> login(BuildContext context) async {
