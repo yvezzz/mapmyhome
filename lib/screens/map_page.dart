@@ -1,7 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'parametre.dart';
 import 'package:mapmyhome/widgets/methode.dart';
-
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -12,45 +12,43 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   @override
+  void initState() {
+    super.initState();
+    checkPermissions(context);
+  }
+
+  late GoogleMapController mapController;
+
+  // Position initiale : Yaoundé
+  final LatLng _center = const LatLng(3.8480, 11.5021);
+
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-        final screenWidth = constraints.maxWidth;
-        final formWidth = getFormWidth(screenWidth);
-        
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 24.0),
-            child: SizedBox(
-              width: formWidth,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Page de la Carte"),
-                    const SizedBox(height: 50.0),
-                    SizedBox(
-                      width: screenWidth * 0.35,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await FirebaseAuth.instance.signOut();
-                          if (context.mounted) {
-                            Navigator.pushReplacementNamed(context, '/');
-                          }
-                        },
-                        style: customButtonStyle(context),
-                        child: const Text(
-                          "Déconnexion",
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+      appBar: AppBar(
+        title: const Text('Google Maps'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const Parametre()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: GoogleMap(
+        onMapCreated: _onMapCreated,
+        initialCameraPosition: CameraPosition(target: _center, zoom: 12),
+        myLocationEnabled: true,
+        myLocationButtonEnabled: true,
+        zoomControlsEnabled: true,
       ),
     );
   }

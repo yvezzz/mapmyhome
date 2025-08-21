@@ -1,104 +1,36 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:mapmyhome/screens/ecran_connexion.dart';
 import 'package:mapmyhome/screens/map_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 final mdpController = TextEditingController();
 final mailController = TextEditingController();
+final phoneController = TextEditingController();
+final fullNameController = TextEditingController();
+
 String? errorMessage;
 final formKey = GlobalKey<FormState>();
 bool obscureText = true;
 bool rememberPassword = false;
-final phoneController = TextEditingController();
-final fullNameController = TextEditingController();
 bool agreePersonalData = false;
 String? selectedRole;
 String? selectedCountry;
 
+// Client ID web pour Google Sign-In
+final GoogleSignIn googleSignIn = GoogleSignIn(
+  clientId:
+      "472099826779-hfa8o4hdai8lvqmlbl85j80263n47mb8.apps.googleusercontent.com",
+  scopes: ['email'],
+);
 
-Future<void> handleInscription(BuildContext context) async {
-  if (formKey.currentState!.validate() && agreePersonalData) {
-    showLoadingDialog(context);
-    try {
-      final auth = FirebaseAuth.instance;
-
-      UserCredential userCredential = await auth.createUserWithEmailAndPassword(
-        email: mailController.text.trim(),
-        password: mdpController.text.trim(),
-      );
-
-      await FirebaseFirestore.instance
-          .collection('utilisateurs')
-          .doc(userCredential.user!.uid)
-          .set({
-            'nom_complet': fullNameController.text.trim(),
-            'email': mailController.text.trim(),
-            'role': selectedRole,
-            'pays': selectedCountry,
-            'telephone': phoneController.text.trim(),
-            'uid': userCredential.user!.uid,
-            'auth_provider': 'email',
-          });
-
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Inscription réussie ✅")));
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (e) => const EcranConnexion()),
-      );
-    } on FirebaseAuthException catch (e) {
-      Navigator.pop(context);
-      String message = "Une erreur est survenue.";
-      if (e.code == 'email-already-in-use') {
-        message = "Cet e-mail est déjà utilisé.";
-      } else if (e.code == 'invalid-email') {
-        message = "E-mail invalide.";
-      } else if (e.code == 'weak-password') {
-        message = "Mot de passe trop faible.";
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  } else if (!agreePersonalData) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Veuillez accepter le traitement des données personnelles",
-        ),
-      ),
-    );
-  }
-}
 
 double getFormWidth(double screenWidth) {
   if (screenWidth < 600) return screenWidth;
   if (screenWidth < 1000) return 650;
   return 500;
-}
-
-ButtonStyle customButtonStyle(BuildContext context) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return ButtonStyle(
-    backgroundColor: WidgetStateProperty.resolveWith<Color>(
-      (states) =>
-          states.contains(WidgetState.pressed)
-              ? colorScheme.onPrimary
-              : colorScheme.primary,
-    ),
-    foregroundColor: WidgetStateProperty.resolveWith<Color>(
-      (states) =>
-          states.contains(WidgetState.pressed)
-              ? colorScheme.primary
-              : colorScheme.onPrimary,
-    ),
-  );
 }
 
 void showLoadingDialog(BuildContext context) {
@@ -123,20 +55,15 @@ Future<void> login(BuildContext context) async {
       password: mdpController.text.trim(),
     );
     Navigator.pop(context);
-    // Connexion réussie ✅
     Navigator.push(context, MaterialPageRoute(builder: (_) => const MapPage()));
   } on FirebaseAuthException catch (e) {
+    Navigator.pop(context);
     String message;
     if (e.code == 'user-not-found') {
-      Navigator.pop(context);
-
-      // Affiche un message : Utilisateur introuvable
       message = 'Utilisateur introuvable ❌';
     } else if (e.code == 'wrong-password') {
-      Navigator.pop(context);
       message = 'Mot de passe incorrect 🔐';
     } else {
-      Navigator.pop(context);
       message = 'Erreur : Utilisateur ou Mot de passe incorrect 🔐❌';
     }
     ScaffoldMessenger.of(
@@ -149,9 +76,9 @@ Future<void> signInWithGoogle(BuildContext context) async {
   try {
     showLoadingDialog(context);
 
-    final googleUser = await GoogleSignIn().signIn();
+    final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
-      Navigator.pop(context); // ✅ fermer le dialog si annulé
+      Navigator.pop(context); // fermeture si annulé
       return;
     }
 
@@ -183,12 +110,69 @@ Future<void> signInWithGoogle(BuildContext context) async {
       });
     }
 
-    Navigator.pop(context); // ✅ fermeture normale
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pop(context); // fermeture normale
+    Navigator.pushReplacementNamed(context, '/mappage');
   } catch (e) {
-    Navigator.pop(context); // ✅ fermeture en cas d'erreur
+    Navigator.pop(context);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
   }
 }
+
+
+Future<void> checkPermissions(BuildContext context) async {
+    // 1. Vérifier la permission de localisation
+    var status = await Permission.location.status;
+    if (!status.isGranted) {
+      status = await Permission.location.request();
+      if (!status.isGranted) {
+        showPermissionDialog(context);
+        return;
+      }
+    }
+
+    // 2. Vérifier si la localisation est activée
+    bool isLocationEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!isLocationEnabled) {
+      showEnableLocationDialog(context);
+    }
+  }
+
+  void showPermissionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Permission requise"),
+        content: const Text("Veuillez activer la permission de localisation pour continuer."),
+        actions: [
+          TextButton(
+            child: const Text("OK"),
+            onPressed: () {
+              openAppSettings();
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void showEnableLocationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Localisation désactivée"),
+        content: const Text("Veuillez activer la localisation pour utiliser la carte."),
+        actions: [
+          TextButton(
+            child: const Text("Activer"),
+            onPressed: () {
+              Geolocator.openLocationSettings();
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
