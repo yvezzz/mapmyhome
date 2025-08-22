@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:icons_plus/icons_plus.dart';
 import 'package:mapmyhome/screens/map_page.dart';
 import 'package:mapmyhome/themes/theme.dart';
 import 'package:mapmyhome/screens/ecran_inscription.dart';
-import 'package:icons_plus/icons_plus.dart';
+import 'package:mapmyhome/widgets/methode.dart';
 
 class Admin extends StatefulWidget {
   const Admin({super.key});
@@ -18,27 +18,23 @@ class _AdminState extends State<Admin> {
   final _formKey = GlobalKey<FormState>();
   bool rememberPassword = false;
   bool _obscureText = true;
-  String? errorMessage;
-  final mdpController = TextEditingController();
-  final mailController = TextEditingController();
+  final TextEditingController resetCtrl =
+      TextEditingController(); // déplacé ici
+
+  @override
+  void dispose() {
+    resetCtrl.dispose(); // dispose du controller local
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
-
-          //Largeur responsive
-          double formWidth;
-          if (screenWidth < 600) {
-            formWidth = screenWidth; //mobile
-          } else if (screenWidth < 1000) {
-            formWidth = 650; //tablette
-          } else {
-            formWidth = 500; //Ordinateur
-          }
+          final formWidth = getFormWidth(screenWidth);
+          final buttonWidth = getButtonWidth(screenWidth);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -49,19 +45,14 @@ class _AdminState extends State<Admin> {
                 decoration: const BoxDecoration(
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey, // couleur de l'ombre
-                      offset: Offset(4, 4), // décalage horizontal et vertical
-                      blurRadius: 10, // flou
-                      spreadRadius: 2, // étendue
+                      color: Colors.grey,
+                      offset: Offset(4, 4),
+                      blurRadius: 10,
+                      spreadRadius: 2,
                     ),
                   ],
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(40.0),
-                    topRight: Radius.circular(40.0),
-                    bottomLeft: Radius.circular(40.0),
-                    bottomRight: Radius.circular(40.0),
-                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(40.0)),
                 ),
                 child: Form(
                   key: _formKey,
@@ -77,6 +68,8 @@ class _AdminState extends State<Admin> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 40.0),
+
+                      // EMAIL
                       TextFormField(
                         controller: mailController,
                         validator: (value) {
@@ -84,7 +77,7 @@ class _AdminState extends State<Admin> {
                             return "Veuillez saisir un e-mail";
                           }
                           if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                            return 'Veuillez entrer un e-mail valide (Exemple@gmail.com)';
+                            return 'Veuillez entrer un e-mail valide';
                           }
                           return null;
                         },
@@ -98,6 +91,8 @@ class _AdminState extends State<Admin> {
                         ),
                       ),
                       const SizedBox(height: 25.0),
+
+                      // MOT DE PASSE
                       TextFormField(
                         controller: mdpController,
                         obscureText: _obscureText,
@@ -106,7 +101,7 @@ class _AdminState extends State<Admin> {
                             return "Veuillez saisir le mot de passe";
                           }
                           if (value.length < 8 || value.length > 20) {
-                            return 'Le mot de passe doit contenir entre 8 et 20 caractères';
+                            return 'Mot de passe entre 8 et 20 caractères';
                           }
                           return null;
                         },
@@ -132,6 +127,8 @@ class _AdminState extends State<Admin> {
                         ),
                       ),
                       const SizedBox(height: 25.0),
+
+                      // SOUVENIR / RESET PASSWORD
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -141,7 +138,7 @@ class _AdminState extends State<Admin> {
                                 value: rememberPassword,
                                 onChanged: (bool? value) {
                                   setState(() {
-                                    rememberPassword = value!;
+                                    rememberPassword = value ?? false;
                                   });
                                 },
                                 activeColor: lightColorScheme.primary,
@@ -153,7 +150,9 @@ class _AdminState extends State<Admin> {
                             ],
                           ),
                           GestureDetector(
-                            onTap: () {},
+                            onTap: () {
+                              showResetPasswordDialog(context, resetCtrl);
+                            },
                             child: Text(
                               'Oublier le mot de passe ?',
                               style: TextStyle(
@@ -165,18 +164,29 @@ class _AdminState extends State<Admin> {
                         ],
                       ),
                       const SizedBox(height: 25.0),
+
+                      // BOUTON CONNEXION
                       SizedBox(
-                        width: double.infinity,
+                        width: buttonWidth,
                         child: ElevatedButton(
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
                               login(context);
                             }
                           },
-                          child: const Text("Connexion"),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12.0),
+                            child: Text(
+                              "Connexion",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 18),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 25.0),
+
+                      // CONNECTE AVEC GOOGLE / AUTRES
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -196,6 +206,7 @@ class _AdminState extends State<Admin> {
                         ],
                       ),
                       const SizedBox(height: 25.0),
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -205,25 +216,21 @@ class _AdminState extends State<Admin> {
                           ),
                           IconButton(
                             icon: Logo(Logos.facebook_f, size: 35),
-                            onPressed: () {
-                              // À implémenter
-                            },
+                            onPressed: () {},
                           ),
                           IconButton(
                             icon: Logo(Logos.github, size: 35),
-                            onPressed: () {
-                              // À implémenter
-                            },
+                            onPressed: () {},
                           ),
                           IconButton(
                             icon: Logo(Logos.microsoft, size: 35),
-                            onPressed: () {
-                              // À implémenter
-                            },
+                            onPressed: () {},
                           ),
                         ],
                       ),
                       const SizedBox(height: 25.0),
+
+                      // S'INSCRIRE
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -262,33 +269,28 @@ class _AdminState extends State<Admin> {
     );
   }
 
+  // --- Méthodes intégrées ---
+
   Future<void> login(BuildContext context) async {
-    final auth = FirebaseAuth.instance;
     try {
-      _showLoadingDialog();
-      await auth.signInWithEmailAndPassword(
+      showLoadingDialog(context);
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: mailController.text.trim(),
         password: mdpController.text.trim(),
       );
       Navigator.pop(context);
-      // Connexion réussie ✅
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MapPage()),
+        MaterialPageRoute(builder: (_) => const MapPage(role: 'Admin')),
       );
     } on FirebaseAuthException catch (e) {
-      String message;
-
-      if (e.code == 'user-not-found') {
-        message = 'Utilisateur introuvable ❌';
-      } else if (e.code == 'wrong-password') {
-        message = 'Mot de passe incorrect 🔐';
-      } else {
-        message = 'Erreur : Utilisateur ou Mot de passe incorrect 🔐❌';
-      }
-
-      Navigator.pop(context); // On le met une seule fois ici
-
+      Navigator.pop(context);
+      String message =
+          e.code == 'user-not-found'
+              ? 'Utilisateur introuvable ❌'
+              : e.code == 'wrong-password'
+              ? 'Mot de passe incorrect 🔐'
+              : 'Erreur : $e';
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -297,14 +299,12 @@ class _AdminState extends State<Admin> {
 
   Future<void> signInWithGoogle(BuildContext context) async {
     try {
-      _showLoadingDialog();
-
-      final googleUser = await GoogleSignIn().signIn();
+      showLoadingDialog(context);
+      final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        Navigator.pop(context); // ✅ fermer le dialog si annulé
+        Navigator.pop(context);
         return;
       }
-
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -328,7 +328,7 @@ class _AdminState extends State<Admin> {
             .set({
               'nom_complet': userCredential.user?.displayName ?? '',
               'email': userCredential.user?.email ?? '',
-              'role': 'Client',
+              'role': 'Admin',
               'pays': '',
               'telephone': userCredential.user?.phoneNumber ?? '',
               'uid': uid,
@@ -336,25 +336,73 @@ class _AdminState extends State<Admin> {
             });
       }
 
-      Navigator.pop(context); // ✅ fermeture normale
-      Navigator.pushReplacementNamed(context, '/mappage');
+      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MapPage(role: 'Admin')),
+      );
     } catch (e) {
-      Navigator.pop(context); // ✅ fermeture en cas d'erreur
+      Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
     }
   }
 
-  void _showLoadingDialog() {
+  void showResetPasswordDialog(
+    BuildContext context,
+    TextEditingController emailController,
+  ) {
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder:
-          (context) => const Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Center(child: CircularProgressIndicator()),
+          (_) => AlertDialog(
+            title: const Text("Réinitialiser le mot de passe"),
+            content: TextFormField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                hintText: 'Entrez votre e-mail',
+              ),
+            ),
+            actions: [
+              TextButton(
+                child: const Text("Annuler"),
+                onPressed: () => Navigator.pop(context),
+              ),
+              TextButton(
+                child: const Text("Envoyer"),
+                onPressed: () async {
+                  final email = emailController.text.trim();
+                  if (email.isEmpty ||
+                      !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Veuillez entrer un e-mail valide"),
+                      ),
+                    );
+                    return;
+                  }
+                  try {
+                    await FirebaseAuth.instance.sendPasswordResetEmail(
+                      email: email,
+                    );
+                    Navigator.pop(context);
+                    emailController.clear(); // clear après envoi réussi
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("E-mail de réinitialisation envoyé ✅"),
+                      ),
+                    );
+                  } on FirebaseAuthException catch (e) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Erreur : ${e.message}")),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
     );
   }

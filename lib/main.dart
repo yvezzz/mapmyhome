@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const SplashScreen(),
         '/setting': (context) => const Parametre(),
         '/login': (context) => const EcranConnexion(),
-        '/mappage': (context) => const MapPage(),
+        '/mappage': (context) => const MapPage(role: ''),
       },
     );
   }

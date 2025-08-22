@@ -44,11 +44,17 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'assets/images/icon.png',
-              height: 120,
-              errorBuilder: (_, __, ___) => const Icon(Icons.home, size: 120),
+            Padding(
+              padding: const EdgeInsets.only(
+                left: 25.0,
+              ), 
+              child: Image.asset(
+                'assets/images/icon.png',
+                height: 120,
+                errorBuilder: (_, __, ___) => const Icon(Icons.home, size: 120),
+              ),
             ),
+
             const SizedBox(height: 50),
             const CircularProgressIndicator(),
           ],

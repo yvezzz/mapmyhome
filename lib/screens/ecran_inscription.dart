@@ -7,6 +7,7 @@ import 'package:mapmyhome/themes/theme.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 class EcranInscription extends StatefulWidget {
   const EcranInscription({super.key});
 
@@ -110,59 +111,59 @@ class _EcranInscriptionState extends State<EcranInscription> {
   }
 
   Future<void> signInWithGoogle(BuildContext context) async {
-  try {
-    await _showLoadingDialog();
+    try {
+      await _showLoadingDialog();
 
-    final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      Navigator.pop(context); // ✅ fermer le dialog si annulé
-      return;
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        Navigator.pop(context); // ✅ fermer le dialog si annulé
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithCredential(credential);
+
+      final uid = userCredential.user!.uid;
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('utilisateurs')
+              .doc(uid)
+              .get();
+
+      if (!userDoc.exists) {
+        await FirebaseFirestore.instance
+            .collection('utilisateurs')
+            .doc(uid)
+            .set({
+              'nom_complet': userCredential.user?.displayName ?? '',
+              'email': userCredential.user?.email ?? '',
+              'role': 'Client',
+              'pays': '',
+              'telephone': userCredential.user?.phoneNumber ?? '',
+              'uid': uid,
+              'auth_provider': 'google',
+            });
+      }
+
+      Navigator.pop(context); // ✅ fermeture normale
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      Navigator.pop(context); // ✅ fermeture en cas d'erreur
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur Google : $e')));
     }
-
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-    final uid = userCredential.user!.uid;
-    final userDoc = await FirebaseFirestore.instance
-        .collection('utilisateurs')
-        .doc(uid)
-        .get();
-
-    if (!userDoc.exists) {
-      await FirebaseFirestore.instance
-          .collection('utilisateurs')
-          .doc(uid)
-          .set({
-        'nom_complet': userCredential.user?.displayName ?? '',
-        'email': userCredential.user?.email ?? '',
-        'role': 'Client',
-        'pays': '',
-        'telephone': userCredential.user?.phoneNumber ?? '',
-        'uid': uid,
-        'auth_provider': 'google',
-      });
-    }
-
-    Navigator.pop(context); // ✅ fermeture normale
-    Navigator.pushReplacementNamed(context, '/home');
-  } catch (e) {
-    Navigator.pop(context); // ✅ fermeture en cas d'erreur
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erreur Google : $e')),
-    );
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
@@ -210,6 +211,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         decoration: InputDecoration(
                           label: const Text('Nom et prénom'),
                           hintText: 'Entrez le nom complet',
+                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -227,6 +229,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         decoration: InputDecoration(
                           label: const Text('E-mail'),
                           hintText: "exemple@gmail.com",
+                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -246,6 +249,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         decoration: InputDecoration(
                           label: const Text('Mot de passe'),
                           hintText: 'Entrez le mot de passe',
+                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -276,6 +280,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                         decoration: InputDecoration(
                           label: const Text('Téléphone'),
                           hintText: 'Entrez votre numéro',
+                          hintStyle: const TextStyle(color: Colors.black26),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -364,6 +369,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                                 children: [
                                   const TextSpan(
                                     text: "J'accepte le traitement des ",
+                                    style: TextStyle(color: Colors.black45),
                                   ),
                                   TextSpan(
                                     text: "données personnelles",
@@ -398,7 +404,10 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           Expanded(child: Divider(color: Colors.grey)),
                           Padding(
                             padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text("S'inscrire avec"),
+                            child: Text(
+                              "S'inscrire avec",
+                              style: TextStyle(color: Colors.black45),
+                            ),
                           ),
                           Expanded(child: Divider(color: Colors.grey)),
                         ],
@@ -413,9 +422,7 @@ class _EcranInscriptionState extends State<EcranInscription> {
                           ),
                           IconButton(
                             icon: Logo(Logos.facebook_f, size: 35),
-                            onPressed: () {
-                              
-                            },
+                            onPressed: () {},
                           ),
                           IconButton(
                             icon: Logo(Logos.github, size: 35),
@@ -435,7 +442,10 @@ class _EcranInscriptionState extends State<EcranInscription> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text("Vous avez déjà un compte ? "),
+                          const Text(
+                            "Vous avez déjà un compte ? ",
+                            style: TextStyle(color: Colors.black45),
+                          ),
                           GestureDetector(
                             onTap: () {
                               Navigator.pushReplacement(
